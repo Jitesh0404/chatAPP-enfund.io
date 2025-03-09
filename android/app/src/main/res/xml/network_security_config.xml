@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+    <!-- Optionally, specify domains if you want to limit cleartext to specific hosts -->
+    <!-- <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">chat-api-k4vi.onrender.com</domain>
+    </domain-config> -->
+</network-security-config>

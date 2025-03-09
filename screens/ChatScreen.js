@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert } from 'react-native';
 import { getMessages } from '../utility/api';
 
-
 export default function ChatScreen({ route }) {
   const { roomId, username, userId } = route.params;
   const [messages, setMessages] = useState([]);
@@ -26,29 +25,28 @@ export default function ChatScreen({ route }) {
   useEffect(() => {
     fetchInitialMessages();
 
-    const ws = new WebSocket(`ws://chat-api-k4vi.onrender.com/ws/${roomId}/${username}`);
+    const ws = new WebSocket(`wss://chat-api-k4vi.onrender.com/ws/${roomId}/${username}`); // Use wss://
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket connected to:', `ws://chat-api-k4vi.onrender.com/ws/${roomId}/${username}`);
+      console.log('WebSocket connected to:', `wss://chat-api-k4vi.onrender.com/ws/${roomId}/${username}`);
     };
 
     ws.onmessage = (event) => {
-      console.log('Received WebSocket message:', event.data);
       const data = JSON.parse(event.data);
       if (data.event === 'message') {
-        if(data.content === undefined)
-          return;
+        // Handle nested message object
+        const messageData = data.message || {}; // Fallback if message is missing
         setMessages((prev) => {
           const newMessages = [
             ...prev,
             {
-              content: data.content,
-              username: data.username,
-              created_at: new Date().toISOString(),
-              id: Date.now().toString(),
+              content: messageData.content || 'No content',
+              username: messageData.username || 'Unknown',
+              created_at: messageData.created_at || new Date().toISOString(),
+              id: messageData.id?.toString() || Date.now().toString(),
               room_id: roomId,
-              user_id: userId,
+              user_id: messageData.user_id || userId,
             },
           ];
           setTimeout(() => {
@@ -61,7 +59,7 @@ export default function ChatScreen({ route }) {
           const newMessages = [
             ...prev,
             {
-              content: `${data.username} has ${data.event}ed the room`,
+              content: `${data.username || 'Unknown'} has ${data.event}ed the room`,
               username: 'System',
               created_at: new Date().toISOString(),
               id: Date.now().toString(),
@@ -77,8 +75,12 @@ export default function ChatScreen({ route }) {
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error.message);
-      Alert.alert('Error', 'WebSocket connection failed');
+      Alert.alert('Error', 'WebSocket connection failed. Retrying...');
+      setTimeout(() => {
+        if (wsRef.current?.readyState === WebSocket.CLOSED) {
+          wsRef.current = new WebSocket(`wss://chat-api-k4vi.onrender.com/ws/${roomId}/${username}`);
+        }
+      }, 2000);
     };
 
     ws.onclose = (event) => {
@@ -86,14 +88,15 @@ export default function ChatScreen({ route }) {
     };
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      if (wsRef.current) wsRef.current.close();
     };
   }, [roomId, username, userId]);
 
   const sendMessage = () => {
-    if (message == undefined || !message.trim()) return;
+    if (!message.trim()) {
+      Alert.alert('Error', 'Message cannot be empty');
+      return;
+    }
 
     const payload = {
       event: 'message',
@@ -102,23 +105,23 @@ export default function ChatScreen({ route }) {
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(payload));
-      setMessages((prev) => {
-        const newMessages = [
-          ...prev,
-          {
-            content: message,
-            username,
-            created_at: new Date().toISOString(),
-            id: Date.now().toString(),
-            room_id: roomId,
-            user_id: userId,
-          },
-        ];
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-        return newMessages;
-      });
+      // setMessages((prev) => {
+      //   const newMessages = [
+      //     ...prev,
+      //     {
+      //       content: message,
+      //       username,
+      //       created_at: new Date().toISOString(),
+      //       id: Date.now().toString(),
+      //       room_id: roomId,
+      //       user_id: userId,
+      //     },
+      //   ];
+      //   setTimeout(() => {
+      //     flatListRef.current?.scrollToEnd({ animated: true });
+      //   }, 100);
+      //   return newMessages;
+      // });
       setMessage('');
     } else {
       Alert.alert('Error', 'WebSocket is not connected. Please try again.');
@@ -129,7 +132,6 @@ export default function ChatScreen({ route }) {
   const renderMessage = ({ item }) => {
     const isSender = item.username === username;
     const isSystem = item.system;
-    const color = isSender ? "#FFF" : "#555";
 
     return (
       <View style={[
@@ -138,10 +140,10 @@ export default function ChatScreen({ route }) {
         isSystem && styles.systemMessage,
       ]}>
         <View style={styles.messageContentWrapper}>
-          <Text style={[styles.messageHeader,{color : color}]}>
-            {item.username}: {item.created_at ? new Date(item.created_at).toLocaleTimeString() : ''}
+          <Text style={styles.messageHeader}>
+            {item.username || 'Unknown'}: {item.created_at ? new Date(item.created_at).toLocaleTimeString() : ''}
           </Text>
-          <Text style={[styles.messageContent,{color : color}]}>{item.content}</Text>
+          <Text style={styles.messageContent}>{item.content || 'No content'}</Text>
         </View>
       </View>
     );
@@ -168,7 +170,7 @@ export default function ChatScreen({ route }) {
             setMessage(text);
           }}
           placeholder="Type a message..."
-          returnKeyType="send" 
+          returnKeyType="send"
           onSubmitEditing={sendMessage}
         />
         <Button title="Send" onPress={sendMessage} />
@@ -187,7 +189,7 @@ const styles = StyleSheet.create({
     maxWidth: '70%',
   },
   senderMessage: {
-    backgroundColor: '#3f556f',
+    backgroundColor: '#007AFF',
     alignSelf: 'flex-end',
   },
   receiverMessage: {
@@ -205,9 +207,11 @@ const styles = StyleSheet.create({
   },
   messageHeader: {
     fontSize: 12,
+    color: '#555',
   },
   messageContent: {
     fontSize: 16,
+    color: '#000',
   },
   inputContainer: { flexDirection: 'row', padding: 10 },
   input: { flex: 1, borderWidth: 1, padding: 10, marginRight: 10, borderRadius: 5 },

@@ -8,3 +8,9 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+-keep class org.java_websocket.** { *; }
+-keepclassmembers class org.java_websocket.** { *; }
+-keepattributes InnerClasses
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
