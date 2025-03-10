@@ -15,7 +15,7 @@ function App(): React.JSX.Element {
     <Stack.Navigator initialRouteName="Login">
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Rooms" component={RoomsScreen} />
-      <Stack.Screen name="CreateRoom" component={CreateRoomScreen} />
+      <Stack.Screen name="CreateRoom" component={CreateRoomScreen} />  
       <Stack.Screen name="Chat" component={ChatScreen} />
     </Stack.Navigator>
   </NavigationContainer>

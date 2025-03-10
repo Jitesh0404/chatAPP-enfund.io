@@ -1,0 +1,1 @@
+export const API_BASE_URL = 'https://chat-api-k4vi.onrender.com';
